@@ -2,14 +2,19 @@ import json
 import re
 from pathlib import Path
 from typing import Any, Dict, List
-
+from ocr_utils import extract_text_from_image
+from ingredient_cleaner import clean_ocr_ingredients
 import streamlit as st
 
 
 # Optional Gemma client import
 # The app must still work even if Ollama/Gemma is not available.
 try:
-    from gemma_client import extract_ingredients_with_gemma, explain_risk_with_gemma
+    from gemma_client import (
+        extract_ingredients_with_gemma,
+        explain_risk_with_gemma,
+        clean_ocr_label_text_with_gemma,
+    )
 
     GEMMA_AVAILABLE = True
 except Exception:
@@ -257,9 +262,14 @@ def main():
                 "Sugar-conscious profile",
             ],
         )
-
+        
+        if "ocr_raw_text" in st.session_state:
+            with st.expander("Raw OCR text"):
+                st.text(st.session_state["ocr_raw_text"])
+        default_ocr_text = st.session_state.get("ocr_text", "")
         raw_ingredients = st.text_area(
             "Paste product ingredients or label text",
+            value=default_ocr_text,
             height=200,
             placeholder=(
                 "INGREDIENTS: water, sugar, caffeine, taurine, "
@@ -278,10 +288,36 @@ def main():
                 caption="Uploaded product label",
                 use_container_width=True,
             )
-            st.warning(
-                "Image OCR / Gemma vision is not enabled yet in this MVP. "
-                "For now, paste the ingredients text manually."
-            )
+
+            if st.button("Extract text from image with local OCR"):
+                try:
+                    with st.spinner("Extracting text from image..."):
+                        extracted_text = extract_text_from_image(uploaded_image)
+
+                    if extracted_text:
+                        st.session_state["ocr_raw_text"] = extracted_text
+
+                        if GEMMA_AVAILABLE:
+                            try:
+                                with st.spinner("Cleaning OCR text with local Gemma..."):
+                                    cleaned_text = clean_ocr_label_text_with_gemma(extracted_text)
+
+                                st.session_state["ocr_text"] = cleaned_text
+                                st.success("Text extracted and cleaned with local Gemma.")
+
+                            except Exception as exc:
+                                st.session_state["ocr_text"] = extracted_text
+                                st.warning(
+                                    f"OCR worked, but Gemma cleanup failed. Raw OCR will be used. Error: {exc}"
+                                )
+                        else:
+                            st.session_state["ocr_text"] = extracted_text
+                            st.success("Text extracted from image.")
+                    else:
+                        st.warning("No readable text detected. Try a clearer image.")
+
+                except Exception as exc:
+                    st.error(f"OCR failed: {exc}")
 
         analyze_button = st.button("Analyze product", type="primary")
 
@@ -329,9 +365,15 @@ def main():
                 st.warning(
                     f"Gemma extraction failed. Using fallback parser instead. Error: {exc}"
                 )
-                ingredients = extract_ingredients_fallback(raw_ingredients)
+                ingredients = clean_ocr_ingredients(raw_ingredients)
+
+                if not ingredients:
+                    ingredients = extract_ingredients_fallback(raw_ingredients)
         else:
-            ingredients = extract_ingredients_fallback(raw_ingredients)
+            ingredients = clean_ocr_ingredients(raw_ingredients)
+
+            if not ingredients:
+                ingredients = extract_ingredients_fallback(raw_ingredients)
 
         # -----------------------------
         # Rule-based analysis

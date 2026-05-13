@@ -143,3 +143,25 @@ Return a concise answer with this structure:
 """
 
     return ask_gemma(prompt)
+
+def clean_ocr_label_text_with_gemma(ocr_text: str) -> str:
+    prompt = f"""
+You are an OCR correction assistant for product labels.
+
+The following text was extracted from a product label with OCR.
+It contains many errors, broken words, duplicated fragments, and noise.
+
+Your task:
+- Keep only the useful product label text.
+- Focus on the ingredients list.
+- Correct obvious OCR mistakes when possible.
+- Preserve French ingredient names if they are in French.
+- Do not invent ingredients.
+- Return only a clean ingredients paragraph.
+- No markdown, no explanation.
+
+Noisy OCR text:
+{ocr_text}
+"""
+
+    return ask_gemma(prompt)
