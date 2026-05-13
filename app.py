@@ -1,18 +1,33 @@
 import json
 import re
 from pathlib import Path
+from typing import Any, Dict, List
 
 import streamlit as st
+
+
+# Optional Gemma client import
+# The app must still work even if Ollama/Gemma is not available.
+try:
+    from gemma_client import extract_ingredients_with_gemma, explain_risk_with_gemma
+
+    GEMMA_AVAILABLE = True
+except Exception:
+    GEMMA_AVAILABLE = False
 
 
 APP_TITLE = "Skopeva Offline Guard"
 RULES_PATH = Path("demo_data/risk_rules.json")
 
 
-def load_rules():
+# -----------------------------
+# Helpers
+# -----------------------------
+def load_rules() -> Dict[str, Dict[str, str]]:
     if not RULES_PATH.exists():
-        st.error("risk_rules.json not found in demo_data/")
+        st.error("Missing file: demo_data/risk_rules.json")
         return {}
+
     with open(RULES_PATH, "r", encoding="utf-8") as file:
         return json.load(file)
 
@@ -21,7 +36,11 @@ def normalize_text(text: str) -> str:
     return text.lower().strip()
 
 
-def extract_ingredients(raw_text: str):
+def extract_ingredients_fallback(raw_text: str) -> List[str]:
+    """
+    Simple fallback parser when Gemma is not used or fails.
+    This is intentionally basic for the hackathon prototype.
+    """
     text = normalize_text(raw_text)
 
     prefixes = [
@@ -30,7 +49,7 @@ def extract_ingredients(raw_text: str):
         "ingrédients:",
         "composition:",
         "contains:",
-        "contient:"
+        "contient:",
     ]
 
     for prefix in prefixes:
@@ -40,14 +59,18 @@ def extract_ingredients(raw_text: str):
     ingredients = []
 
     for part in parts:
-        cleaned = part.strip(" .:-()[]")
+        cleaned = part.strip(" .:-()[]{}")
         if cleaned and len(cleaned) > 1:
             ingredients.append(cleaned)
 
     return ingredients
 
 
-def analyze_ingredients(ingredients, rules):
+def analyze_ingredients(
+    ingredients: List[str],
+    rules: Dict[str, Dict[str, str]],
+    user_profile: str,
+) -> List[Dict[str, Any]]:
     findings = []
 
     for ingredient in ingredients:
@@ -55,71 +78,173 @@ def analyze_ingredients(ingredients, rules):
 
         for rule_key, rule in rules.items():
             if rule_key in ingredient_normalized:
-                findings.append({
-                    "ingredient": ingredient,
-                    "matched_rule": rule_key,
-                    "risk_level": rule["risk_level"],
-                    "category": rule["category"],
-                    "concern": rule["concern"]
-                })
+                risk_level = rule.get("risk_level", "low")
+
+                # Simple demo-only user context adjustment.
+                # This is not proprietary scoring logic.
+                if user_profile == "Pregnancy-sensitive profile" and rule_key in [
+                    "caffeine",
+                    "alcohol denat",
+                ]:
+                    risk_level = "high_attention"
+
+                if user_profile == "Child / parent profile" and rule_key in [
+                    "caffeine",
+                    "sugar",
+                    "glucose syrup",
+                ]:
+                    risk_level = "high_attention"
+
+                if user_profile == "Sensitive skin" and rule_key in [
+                    "fragrance",
+                    "alcohol denat",
+                    "paraben",
+                ]:
+                    risk_level = "high_attention"
+
+                if user_profile == "Sugar-conscious profile" and rule_key in [
+                    "sugar",
+                    "glucose syrup",
+                ]:
+                    risk_level = "high_attention"
+
+                findings.append(
+                    {
+                        "ingredient": ingredient,
+                        "matched_rule": rule_key,
+                        "risk_level": risk_level,
+                        "category": rule.get("category", "unknown"),
+                        "concern": rule.get("concern", ""),
+                    }
+                )
 
     return findings
 
 
-def compute_overall_risk(findings):
+def compute_overall_risk(findings: List[Dict[str, Any]]) -> str:
     if not findings:
         return "low"
 
     priority = {
         "low": 1,
         "medium": 2,
-        "high_attention": 3
+        "high_attention": 3,
     }
 
-    max_score = max(priority.get(item["risk_level"], 1) for item in findings)
+    max_score = max(priority.get(item.get("risk_level", "low"), 1) for item in findings)
 
     if max_score == 3:
         return "high_attention"
     if max_score == 2:
         return "medium"
+
     return "low"
 
 
-def risk_label(risk_level):
+def risk_label(risk_level: str) -> str:
     labels = {
         "low": "Low",
         "medium": "Medium attention",
-        "high_attention": "High attention"
+        "high_attention": "High attention",
     }
     return labels.get(risk_level, "Unknown")
 
 
+def risk_emoji(risk_level: str) -> str:
+    emojis = {
+        "low": "🟢",
+        "medium": "🟠",
+        "high_attention": "🔴",
+    }
+    return emojis.get(risk_level, "⚪")
+
+
+def build_local_explanation(
+    product_name: str,
+    product_category: str,
+    user_profile: str,
+    overall_risk: str,
+    ingredients: List[str],
+    findings: List[Dict[str, Any]],
+) -> str:
+    """
+    Local fallback explanation when Gemma is not available.
+    """
+    if not findings:
+        return (
+            f"Based on the simplified demo rules, no specific ingredient of concern "
+            f"was detected for this {product_category} product. "
+            f"This does not mean the product is risk-free; it only means no match was found "
+            f"in the limited hackathon rule set."
+        )
+
+    watched = ", ".join(sorted({item["ingredient"] for item in findings}))
+
+    return (
+        f"{product_name or 'This product'} has an overall risk level of "
+        f"{risk_label(overall_risk)} for the selected context: {user_profile}. "
+        f"The ingredients to watch are: {watched}. "
+        f"This analysis is based on a simplified local rule engine for demo purposes only."
+    )
+
+
+# -----------------------------
+# Streamlit UI
+# -----------------------------
 def main():
     st.set_page_config(
-        page_title="Skopeva Offline Guard",
+        page_title=APP_TITLE,
         page_icon="🛡️",
-        layout="wide"
+        layout="wide",
     )
 
     st.title("🛡️ Skopeva Offline Guard")
-    st.subheader("Privacy-first product safety scanner — Hackathon Edition")
+    st.subheader("Privacy-first product safety scanner")
 
-    st.info(
-        "This is a hackathon prototype. It does not include Skopeva’s proprietary "
-        "scoring engine, private datasets, advanced prompts, or production safety logic."
-    )
 
     rules = load_rules()
+
+    with st.sidebar:
+        st.markdown("## Settings")
+
+        st.markdown("### AI options")
+
+        use_gemma_extraction = st.checkbox(
+            "Use local Gemma for ingredient extraction",
+            value=False,
+            disabled=not GEMMA_AVAILABLE,
+        )
+
+        use_gemma_explanation = st.checkbox(
+            "Use local Gemma for explanation",
+            value=False,
+            disabled=not GEMMA_AVAILABLE,
+        )
+
+        if not GEMMA_AVAILABLE:
+            st.warning(
+                "Gemma client not detected. The app will use local fallback logic only."
+            )
+
+        st.markdown("### Privacy")
+        st.success(
+            "This demo is designed as offline-first. The local rule engine runs without "
+            "sending personal profile data to a server."
+        )
 
     left, right = st.columns([1, 1])
 
     with left:
-        st.markdown("### 1. Product input")
+        st.markdown("## 1. Product input")
 
-        product_name = st.text_input("Product name", placeholder="Example: Energy drink")
+        product_name = st.text_input(
+            "Product name",
+            placeholder="Example: Energy drink",
+        )
+
         product_category = st.selectbox(
             "Product category",
-            ["food", "cosmetic", "baby", "supplement", "unknown"]
+            ["food", "cosmetic", "baby", "supplement", "unknown"],
         )
 
         user_profile = st.selectbox(
@@ -129,77 +254,227 @@ def main():
                 "Pregnancy-sensitive profile",
                 "Child / parent profile",
                 "Sensitive skin",
-                "Sugar-conscious profile"
-            ]
+                "Sugar-conscious profile",
+            ],
         )
 
         raw_ingredients = st.text_area(
-            "Paste ingredients",
-            height=180,
-            placeholder="INGREDIENTS: water, sugar, caffeine, taurine, citric acid, natural flavors."
+            "Paste product ingredients or label text",
+            height=200,
+            placeholder=(
+                "INGREDIENTS: water, sugar, caffeine, taurine, "
+                "citric acid, natural flavors."
+            ),
         )
 
         uploaded_image = st.file_uploader(
             "Optional: upload product label image",
-            type=["png", "jpg", "jpeg"]
+            type=["png", "jpg", "jpeg"],
         )
 
         if uploaded_image:
-            st.image(uploaded_image, caption="Uploaded label image", use_container_width=True)
+            st.image(
+                uploaded_image,
+                caption="Uploaded product label",
+                use_container_width=True,
+            )
             st.warning(
-                "Image OCR/Gemma vision will be added in the next step. "
+                "Image OCR / Gemma vision is not enabled yet in this MVP. "
                 "For now, paste the ingredients text manually."
             )
 
-        analyze_button = st.button("Analyze product")
+        analyze_button = st.button("Analyze product", type="primary")
 
     with right:
-        st.markdown("### 2. Analysis result")
+        st.markdown("## 2. Analysis result")
 
-        if analyze_button:
-            if not raw_ingredients.strip():
-                st.error("Please paste ingredients to analyze.")
-                return
+        if not analyze_button:
+            st.caption("Paste ingredients and click **Analyze product** to start.")
+            return
 
-            ingredients = extract_ingredients(raw_ingredients)
-            findings = analyze_ingredients(ingredients, rules)
-            overall_risk = compute_overall_risk(findings)
+        if not raw_ingredients.strip():
+            st.error("Please paste ingredients or label text to analyze.")
+            return
 
-            st.markdown("#### Product summary")
-            st.write(f"**Product:** {product_name or 'Unknown'}")
-            st.write(f"**Category:** {product_category}")
-            st.write(f"**User context:** {user_profile}")
+        # -----------------------------
+        # Ingredient extraction
+        # -----------------------------
+        extraction_source = "Fallback parser"
+        gemma_extraction = None
 
-            st.metric("Overall risk level", risk_label(overall_risk))
+        if use_gemma_extraction and GEMMA_AVAILABLE:
+            try:
+                with st.spinner("Extracting ingredients with local Gemma..."):
+                    gemma_extraction = extract_ingredients_with_gemma(raw_ingredients)
 
-            st.markdown("#### Detected ingredients")
-            if ingredients:
-                for ingredient in ingredients:
-                    st.write(f"- {ingredient}")
-            else:
-                st.write("No ingredients detected.")
+                extracted_product_name = gemma_extraction.get("product_name")
+                extracted_category = gemma_extraction.get("category")
 
-            st.markdown("#### Ingredients to watch")
+                if extracted_product_name and not product_name:
+                    product_name = extracted_product_name
 
-            if findings:
-                for item in findings:
-                    with st.expander(f"{item['ingredient']} — {risk_label(item['risk_level'])}"):
-                        st.write(f"**Category:** {item['category']}")
-                        st.write(f"**Concern:** {item['concern']}")
-            else:
-                st.success("No specific concern detected with the simplified demo rules.")
+                if extracted_category:
+                    product_category = extracted_category
 
-            st.markdown("#### Privacy note")
-            st.write(
-                "This prototype performs analysis locally with a simplified rule engine. "
-                "No personal health profile is sent to a server in this demo."
+                ingredients = [
+                    item.get("normalized_name") or item.get("name")
+                    for item in gemma_extraction.get("ingredients", [])
+                    if item.get("normalized_name") or item.get("name")
+                ]
+
+                extraction_source = "Local Gemma"
+                st.success("Ingredients extracted with local Gemma.")
+
+            except Exception as exc:
+                st.warning(
+                    f"Gemma extraction failed. Using fallback parser instead. Error: {exc}"
+                )
+                ingredients = extract_ingredients_fallback(raw_ingredients)
+        else:
+            ingredients = extract_ingredients_fallback(raw_ingredients)
+
+        # -----------------------------
+        # Rule-based analysis
+        # -----------------------------
+        findings = analyze_ingredients(
+            ingredients=ingredients,
+            rules=rules,
+            user_profile=user_profile,
+        )
+
+        overall_risk = compute_overall_risk(findings)
+
+        # -----------------------------
+        # Display summary
+        # -----------------------------
+        st.markdown("### Product summary")
+
+        col_a, col_b, col_c = st.columns(3)
+
+        with col_a:
+            st.metric("Product", product_name or "Unknown")
+
+        with col_b:
+            st.metric("Category", product_category)
+
+        with col_c:
+            st.metric(
+                "Overall risk",
+                f"{risk_emoji(overall_risk)} {risk_label(overall_risk)}",
             )
 
-            st.markdown("#### Disclaimer")
-            st.caption(
-                "This tool is for educational and informational purposes only. "
-                "It is not medical advice and does not replace professional guidance."
+        st.write(f"**User context:** {user_profile}")
+        st.write(f"**Extraction source:** {extraction_source}")
+
+        # -----------------------------
+        # Display detected ingredients
+        # -----------------------------
+        st.markdown("### Detected ingredients")
+
+        if ingredients:
+            for ingredient in ingredients:
+                st.write(f"- {ingredient}")
+        else:
+            st.write("No ingredients detected.")
+
+        # -----------------------------
+        # Display findings
+        # -----------------------------
+        st.markdown("### Ingredients to watch")
+
+        if findings:
+            for item in findings:
+                title = (
+                    f"{risk_emoji(item['risk_level'])} "
+                    f"{item['ingredient']} — {risk_label(item['risk_level'])}"
+                )
+
+                with st.expander(title, expanded=True):
+                    st.write(f"**Matched rule:** {item['matched_rule']}")
+                    st.write(f"**Category:** {item['category']}")
+                    st.write(f"**Concern:** {item['concern']}")
+        else:
+            st.success(
+                "No specific concern detected with the simplified hackathon rules."
             )
+
+        # -----------------------------
+        # Explanation
+        # -----------------------------
+        st.markdown("### Explanation")
+
+        explanation = None
+
+        if use_gemma_explanation and GEMMA_AVAILABLE:
+            try:
+                with st.spinner("Generating explanation with local Gemma..."):
+                    explanation = explain_risk_with_gemma(
+                        product_name=product_name,
+                        category=product_category,
+                        user_context=user_profile,
+                        overall_risk=overall_risk,
+                        ingredients=ingredients,
+                        findings=findings,
+                    )
+
+                st.write(explanation)
+
+            except Exception as exc:
+                st.warning(
+                    f"Gemma explanation failed. Using local fallback explanation. Error: {exc}"
+                )
+                explanation = build_local_explanation(
+                    product_name=product_name,
+                    product_category=product_category,
+                    user_profile=user_profile,
+                    overall_risk=overall_risk,
+                    ingredients=ingredients,
+                    findings=findings,
+                )
+                st.write(explanation)
+        else:
+            explanation = build_local_explanation(
+                product_name=product_name,
+                product_category=product_category,
+                user_profile=user_profile,
+                overall_risk=overall_risk,
+                ingredients=ingredients,
+                findings=findings,
+            )
+            st.write(explanation)
+
+        # -----------------------------
+        # Optional debug
+        # -----------------------------
+        with st.expander("Debug JSON"):
+            st.json(
+                {
+                    "product_name": product_name,
+                    "category": product_category,
+                    "user_profile": user_profile,
+                    "ingredients": ingredients,
+                    "findings": findings,
+                    "overall_risk": overall_risk,
+                    "gemma_extraction": gemma_extraction,
+                }
+            )
+
+        # -----------------------------
+        # Privacy and disclaimer
+        # -----------------------------
+        st.markdown("### Privacy note")
+        st.write(
+            "This prototype is designed to run locally. The rule-based analysis runs "
+            "offline, and the selected user context is not sent to any external server "
+            "in this demo."
+        )
+
+        st.markdown("### Disclaimer")
+        st.caption(
+            "This tool is for educational and informational purposes only. "
+            "It is not medical advice, does not diagnose conditions, and does not "
+            "replace professional guidance."
+        )
 
 
 if __name__ == "__main__":
