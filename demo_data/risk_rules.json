@@ -9,34 +9,109 @@
     "category": "metabolic",
     "concern": "High or frequent sugar intake may be a concern for metabolic health."
   },
-  "glucose syrup": {
+  "sucre": {
     "risk_level": "medium",
     "category": "metabolic",
-    "concern": "Glucose syrup can contribute to high sugar intake."
+    "concern": "Présence de sucre ajouté. À surveiller pour les profils sensibles au sucre ou au contrôle glycémique."
   },
-  "taurine": {
+  "glucose": {
+    "risk_level": "medium",
+    "category": "metabolic",
+    "concern": "Le glucose ou sirop de glucose peut contribuer à l'apport en sucres rapides."
+  },
+  "dextrose": {
+    "risk_level": "medium",
+    "category": "metabolic",
+    "concern": "Le dextrose est un sucre simple pouvant augmenter l'apport en sucres rapides."
+  },
+  "sirop de glucose": {
+    "risk_level": "medium",
+    "category": "metabolic",
+    "concern": "Le sirop de glucose est un sucre ajouté à surveiller dans une consommation fréquente."
+  },
+  "lait": {
+    "risk_level": "high_attention",
+    "category": "allergen",
+    "concern": "Contient du lait, un allergène majeur. À éviter en cas d'allergie aux protéines de lait ou selon tolérance individuelle."
+  },
+  "lactosérum": {
+    "risk_level": "high_attention",
+    "category": "allergen",
+    "concern": "Le lactosérum est dérivé du lait et peut poser problème en cas d'allergie au lait."
+  },
+  "caseinate": {
+    "risk_level": "high_attention",
+    "category": "allergen",
+    "concern": "Le caséinate est dérivé du lait et peut poser problème en cas d'allergie aux protéines de lait."
+  },
+  "caséinate": {
+    "risk_level": "high_attention",
+    "category": "allergen",
+    "concern": "Le caséinate est dérivé du lait et peut poser problème en cas d'allergie aux protéines de lait."
+  },
+  "blé": {
+    "risk_level": "high_attention",
+    "category": "allergen/gluten",
+    "concern": "Contient du blé, source de gluten. À éviter en cas de maladie cœliaque ou d'allergie au blé."
+  },
+  "farine de blé": {
+    "risk_level": "high_attention",
+    "category": "allergen/gluten",
+    "concern": "Contient de la farine de blé, source de gluten."
+  },
+  "sulfites": {
+    "risk_level": "high_attention",
+    "category": "allergen/sensitivity",
+    "concern": "Contient des sulfites, qui peuvent déclencher des réactions chez certaines personnes sensibles."
+  },
+  "sel": {
+    "risk_level": "medium",
+    "category": "sodium",
+    "concern": "Présence de sel. À surveiller en cas de régime pauvre en sodium ou de consommation fréquente."
+  },
+  "colorants": {
+    "risk_level": "medium",
+    "category": "additive",
+    "concern": "Présence de colorants. Certains consommateurs préfèrent limiter les additifs."
+  },
+  "correcteurs d'acidité": {
     "risk_level": "low",
-    "category": "stimulant-related",
-    "concern": "Often found in energy drinks; should be interpreted with caffeine and overall product context."
+    "category": "additive",
+    "concern": "Additif technologique utilisé pour ajuster l'acidité du produit."
   },
-  "paraben": {
-    "risk_level": "medium",
-    "category": "preservative",
-    "concern": "Some consumers prefer avoiding certain preservatives in cosmetic products."
+  "acide citrique": {
+    "risk_level": "low",
+    "category": "additive/acidity",
+    "concern": "Acidifiant courant, généralement utilisé pour ajuster l'acidité ou conserver le produit."
   },
-  "alcohol denat": {
-    "risk_level": "medium",
-    "category": "skin sensitivity",
-    "concern": "Can be drying or irritating for sensitive skin."
+  "acide ascorbique": {
+    "risk_level": "low",
+    "category": "antioxidant",
+    "concern": "Antioxydant courant utilisé pour limiter l'oxydation du produit."
+  },
+  "amidon modifié": {
+    "risk_level": "low",
+    "category": "processed ingredient",
+    "concern": "Ingrédient transformé utilisé pour modifier la texture du produit."
+  },
+  "huile de colza": {
+    "risk_level": "low",
+    "category": "fat/oil",
+    "concern": "Huile végétale courante. Le niveau de risque dépend surtout de la quantité et du contexte nutritionnel global."
   },
   "fragrance": {
     "risk_level": "medium",
     "category": "allergen/sensitivity",
     "concern": "Fragrance may irritate sensitive skin or trigger sensitivity in some users."
   },
-  "palm oil": {
-    "risk_level": "low",
-    "category": "sustainability/nutrition",
-    "concern": "May be relevant for users concerned about nutrition or sustainability."
+  "alcohol denat": {
+    "risk_level": "medium",
+    "category": "skin sensitivity",
+    "concern": "Can be drying or irritating for sensitive skin."
+  },
+  "paraben": {
+    "risk_level": "medium",
+    "category": "preservative",
+    "concern": "Some consumers prefer avoiding certain preservatives in cosmetic products."
   }
 }

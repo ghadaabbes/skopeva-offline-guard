@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 from ocr_utils import extract_text_from_image
 from ingredient_cleaner import clean_ocr_ingredients
 import streamlit as st
-
+import unicodedata
 
 # Optional Gemma client import
 # The app must still work even if Ollama/Gemma is not available.
@@ -38,7 +38,14 @@ def load_rules() -> Dict[str, Dict[str, str]]:
 
 
 def normalize_text(text: str) -> str:
-    return text.lower().strip()
+    text = text.lower().strip()
+    text = text.replace("’", "'")
+
+    # Remove accents for better matching: blé -> ble, lactosérum -> lactoserum
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(char for char in text if unicodedata.category(char) != "Mn")
+
+    return text
 
 
 def extract_ingredients_fallback(raw_text: str) -> List[str]:
@@ -82,11 +89,13 @@ def analyze_ingredients(
         ingredient_normalized = normalize_text(ingredient)
 
         for rule_key, rule in rules.items():
-            if rule_key in ingredient_normalized:
+            rule_key_normalized = normalize_text(rule_key)
+
+            if rule_key_normalized in ingredient_normalized:
                 risk_level = rule.get("risk_level", "low")
 
-                # Simple demo-only user context adjustment.
-                # This is not proprietary scoring logic.
+                if user_profile == "Allergy-sensitive profile" and rule.get("category", "").startswith("allergen"):
+                    risk_level = "high_attention"
                 if user_profile == "Pregnancy-sensitive profile" and rule_key in [
                     "caffeine",
                     "alcohol denat",
@@ -260,6 +269,7 @@ def main():
                 "Child / parent profile",
                 "Sensitive skin",
                 "Sugar-conscious profile",
+                "Allergy-sensitive profile",
             ],
         )
         
