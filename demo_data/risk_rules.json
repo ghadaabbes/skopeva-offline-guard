@@ -1,0 +1,42 @@
+{
+  "caffeine": {
+    "risk_level": "medium",
+    "category": "stimulant",
+    "concern": "May be unsuitable for children, pregnancy-sensitive profiles, or people sensitive to stimulants."
+  },
+  "sugar": {
+    "risk_level": "medium",
+    "category": "metabolic",
+    "concern": "High or frequent sugar intake may be a concern for metabolic health."
+  },
+  "glucose syrup": {
+    "risk_level": "medium",
+    "category": "metabolic",
+    "concern": "Glucose syrup can contribute to high sugar intake."
+  },
+  "taurine": {
+    "risk_level": "low",
+    "category": "stimulant-related",
+    "concern": "Often found in energy drinks; should be interpreted with caffeine and overall product context."
+  },
+  "paraben": {
+    "risk_level": "medium",
+    "category": "preservative",
+    "concern": "Some consumers prefer avoiding certain preservatives in cosmetic products."
+  },
+  "alcohol denat": {
+    "risk_level": "medium",
+    "category": "skin sensitivity",
+    "concern": "Can be drying or irritating for sensitive skin."
+  },
+  "fragrance": {
+    "risk_level": "medium",
+    "category": "allergen/sensitivity",
+    "concern": "Fragrance may irritate sensitive skin or trigger sensitivity in some users."
+  },
+  "palm oil": {
+    "risk_level": "low",
+    "category": "sustainability/nutrition",
+    "concern": "May be relevant for users concerned about nutrition or sustainability."
+  }
+}
