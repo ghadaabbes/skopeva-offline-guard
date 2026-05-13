@@ -6,7 +6,7 @@ from ocr_utils import extract_text_from_image
 from ingredient_cleaner import clean_ocr_ingredients
 import streamlit as st
 import unicodedata
-
+from datetime import datetime
 # Optional Gemma client import
 # The app must still work even if Ollama/Gemma is not available.
 try:
@@ -201,7 +201,44 @@ def build_local_explanation(
         f"This analysis is based on a simplified local rule engine for demo purposes only."
     )
 
-
+def build_analysis_report(
+    product_name: str,
+    product_category: str,
+    user_profile: str,
+    overall_risk: str,
+    ingredients: List[str],
+    findings: List[Dict[str, Any]],
+    explanation: str,
+) -> Dict[str, Any]:
+    return {
+        "project": "Skopeva Offline Guard",
+        "edition": "Hackathon Edition",
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "product": {
+            "name": product_name or "Unknown",
+            "category": product_category,
+        },
+        "user_context": user_profile,
+        "overall_risk": {
+            "level": overall_risk,
+            "label": risk_label(overall_risk),
+        },
+        "detected_ingredients": ingredients,
+        "ingredients_to_watch": findings,
+        "explanation": explanation,
+        "privacy_note": (
+            "This prototype is designed as offline-first. The local rule engine runs "
+            "without sending personal profile data to a server."
+        ),
+        "disclaimer": (
+            "This tool is for educational and informational purposes only. "
+            "It is not medical advice and does not replace professional guidance."
+        ),
+        "ip_notice": (
+            "This public prototype does not include Skopeva’s proprietary scoring engine, "
+            "private datasets, advanced prompts, or production safety logic."
+        ),
+    }
 # -----------------------------
 # Streamlit UI
 # -----------------------------
@@ -435,6 +472,18 @@ def main():
         st.markdown("### Ingredients to watch")
 
         if findings:
+            st.dataframe(
+                [
+                    {
+                        "Ingredient": item["ingredient"],
+                        "Risk": risk_label(item["risk_level"]),
+                        "Category": item["category"],
+                        "Concern": item["concern"],
+                    }
+                    for item in findings
+                ],
+                use_container_width=True,
+            )
             for item in findings:
                 title = (
                     f"{risk_emoji(item['risk_level'])} "
@@ -494,7 +543,27 @@ def main():
                 findings=findings,
             )
             st.write(explanation)
+        # -----------------------------
+        # Downloadable report
+        # -----------------------------
+        st.markdown("### Download report")
 
+        report = build_analysis_report(
+            product_name=product_name,
+            product_category=product_category,
+            user_profile=user_profile,
+            overall_risk=overall_risk,
+            ingredients=ingredients,
+            findings=findings,
+            explanation=explanation,
+        )
+
+        st.download_button(
+            label="Download analysis report JSON",
+            data=json.dumps(report, ensure_ascii=False, indent=2),
+            file_name="skopeva_offline_guard_report.json",
+            mime="application/json",
+        )
         # -----------------------------
         # Optional debug
         # -----------------------------
